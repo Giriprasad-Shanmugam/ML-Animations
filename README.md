@@ -1,3 +1,4 @@
 numpy
-matplotlib==3.9.2
+matplotlib==3.8.2
 streamlit
+pillow
