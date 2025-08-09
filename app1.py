@@ -10,7 +10,7 @@ y_data = np.random.uniform(0, 15, 20)
 
 # Sliders for slope (m) and intercept (c)
 st.sidebar.header("Regression Line Controls")
-m = st.sidebar.slider("Slope (m)", 0.0, 8.0, 1.0, 0.1)
+m = st.sidebar.slider("Slope (m)", -8.0, 8.0, 1.0, 0.1)
 c = st.sidebar.slider("Intercept (c)", 0.0, 12.0, 2.0, 0.1)
 
 # Calculate regression line
@@ -36,7 +36,7 @@ ax.axvline(0, color='black')
 ax.set_aspect('equal')
 
 # Scatter points
-ax.scatter(x_data, y_data, color='darkred', s=50)
+ax.scatter(x_data, y_data, color='darkred', s=30)
 
 # Regression line
 x_vals = np.array([0, 15])
@@ -51,6 +51,6 @@ for x, y in zip(x_data, y_data):
 ax.text(0.5, 14.5, f"SSE: {sse:.2f}", fontsize=12, color='black')
 
 # Streamlit outputs
-st.title("Interactive Linear Regression")
+st.title("Interactive Simple Linear Regression")
 st.dataframe(df)
 st.pyplot(fig)
