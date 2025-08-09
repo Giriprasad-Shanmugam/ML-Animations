@@ -48,7 +48,7 @@ for x, y in zip(x_data, y_data):
     ax.plot([x, x], [y, m * x + c], color='orange', linestyle='--')
 
 # Show SSE on plot
-ax.text(0.5, 14.5, f"SSE: {sse:.2f}", fontsize=12, color='black')
+ax.text(10.5, 14.5, f"SSE: {sse:.2f}", fontsize=12, color='black')
 
 # Streamlit outputs
 st.title("Interactive Simple Linear Regression")
