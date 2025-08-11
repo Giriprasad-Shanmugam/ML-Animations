@@ -18,8 +18,8 @@ if "last_c" not in st.session_state:
 
 # Sliders for slope (m) and intercept (c)
 st.sidebar.header("Regression Line Controls")
-m = st.sidebar.slider("Slope (m)", -8.0, 8.0, 1.0, 0.1)
-c = st.sidebar.slider("Intercept (c)", 0.0, 12.0, 2.0, 0.1)
+m = st.sidebar.slider("Slope (m)", -8.0, 8.0, 1.0, 0.01)
+c = st.sidebar.slider("Intercept (c)", 0.0, 12.0, 2.0, 0.01)
 
 # Track slider changes
 if m != st.session_state.last_m or c != st.session_state.last_c:
