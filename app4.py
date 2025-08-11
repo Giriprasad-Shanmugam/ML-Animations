@@ -37,6 +37,8 @@ find_best_fit = st.sidebar.button(
 # If button clicked → compute best fit line
 if find_best_fit:
     m, c = np.polyfit(x_data, y_data, 1)  # slope, intercept
+    # Show best fit line equation below SSE
+    ax.text(10.5, 13.8, f"Best Fit: y = {m:.2f}x + {c:.2f}", fontsize=12, color='black')
 
 # Calculate regression line
 y_pred = m * x_data + c
