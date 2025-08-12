@@ -72,8 +72,9 @@ y_vals = m * x_vals + c
 ax.plot(x_vals, y_vals, color='blue', linewidth=2)
 
 # Error lines
-for x, y in zip(x_data, y_data):
-    ax.plot([x, x], [y, m * x + c], color='orange', linestyle='--')
+if not (m == 0.0 and c == 0.0):
+    for x, y in zip(x_data, y_data):
+        ax.plot([x, x], [y, m * x + c], color='orange', linestyle='--')
 
 # Show SSE on plot
 ax.text(10.5, 14.5, f"SSE: {sse:.2f}", fontsize=12, color='black')
