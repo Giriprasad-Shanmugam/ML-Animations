@@ -77,7 +77,8 @@ if not (m == 0.0 and c == 0.0):
         ax.plot([x, x], [y, m * x + c], color='orange', linestyle='--')
 
 # Show SSE on plot
-ax.text(10.5, 14.5, f"SSE: {sse:.2f}", fontsize=12, color='black')
+if not (m == 0.0 and c == 0.0):
+    ax.text(10.5, 14.5, f"SSE: {sse:.2f}", fontsize=12, color='black')
 
 # Show best fit line equation below SSE
 if find_best_fit:
