@@ -13,16 +13,22 @@ instructions_text = """
    - No headers are required in the CSV.
 
 2. **Adjust the sliders**:  
-   - Change the slope (**m**) and intercept (**c**) to see how the regression line fits the data.
-   - Each change counts towards enabling the "Find Best Fit Line" button.
+   - Use the **Slope (m)** slider to change line steepness.
+   - Use the **Intercept (c)** slider to move the line up/down.
+   - Initially, both sliders are `0.0` (flat line, no error lines).
+   
+3. **Understanding the SSE Display**:  
+   - SSE (Sum of Squared Errors) measures how far your predicted line is from the actual data points.
+   - A smaller SSE means a better fit.
+   - **Lower SSE → better fit**
+   - SSE updates dynamically as you move the sliders.
 
-3. **Finding the best fit line**:  
-   - After **10 slider changes**, the "Find Best Fit Line" button will be enabled.
-   - Clicking it will calculate the optimal slope and intercept using the least squares method.
-
-4. **Viewing results**:  
-   - The plot will show your data points, the regression line, and the SSE (Sum of Squared Errors).
-   - Once the best fit line is found, its equation will be displayed on the plot.
+4. **Unlocking the "Find Best Fit Line" Button**:  
+   - You must make at least 10 slider adjustments (either slope or intercept) to enable the button.
+   - Once enabled, click "Find Best Fit Line" to:
+     - Automatically calculate the best slope and intercept using least squares.
+     - Draw the best fit line.
+     - Show its equation below the SSE value.
 """
 
 # --- Sidebar Controls ---
