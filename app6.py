@@ -10,7 +10,7 @@ instructions_text = """
    - The file must have two columns:  
      - First column: **Independent variable (X)**  
      - Second column: **Dependent variable (Y)**
-   - No headers are required in the CSV.:
+   - No headers are required in the CSV.
 
 2. **Adjust the sliders**:  
    - Use the **Slope (m)** slider to change line steepness.
@@ -29,7 +29,14 @@ instructions_text = """
      - Automatically calculate the best slope and intercept using least squares.
      - Draw the best fit line.
      - Show its equation below the SSE value.
-"""
+5. **Error Lines (Orange Dashed Lines)**:  
+   - Error lines show the vertical distance between each actual data point and the predicted line.  
+   - They are hidden initially when 𝑚=0 and 𝑐=0 (flat line).
+
+6. **Axis Labels**:  
+   - X-axis: Independent Variable.
+   - Y-axis: Dependent Variable.
+ """
 
 # --- Sidebar Controls ---
 st.sidebar.header("Controls")
