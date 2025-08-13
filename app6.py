@@ -10,7 +10,7 @@ instructions_text = """
    - The file must have two columns:  
      - First column: **Independent variable (X)**  
      - Second column: **Dependent variable (Y)**
-   - No headers are required in the CSV.
+   - No headers are required in the CSV.:
 
 2. **Adjust the sliders**:  
    - Use the **Slope (m)** slider to change line steepness.
