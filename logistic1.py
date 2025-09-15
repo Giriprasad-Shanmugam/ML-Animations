@@ -45,7 +45,7 @@ if option == "Upload CSV":
         st.write("Uploaded Data:")
         st.dataframe(df)
         
-        # Apply prediction for each row
+        # Define functions
         def sigmoid(z):
             return 1 / (1 + np.exp(-z))
         
@@ -64,11 +64,13 @@ if option == "Upload CSV":
         df["Risk (%)"] = df.apply(predict, axis=1)
         st.write("Predictions:")
         st.dataframe(df)
+
 else:
     st.sidebar.header("Manual Input Features")
     input_data = {}
     for f in features:
-        if f["step"] == 1:
+        step = f.get("step", 0.1)  # default step if not provided
+        if step == 1:
             input_data[f["key"]] = st.sidebar.slider(f["label"], int(f["min"]), int(f["max"]), int(f["value"]))
         else:
             input_data[f["key"]] = st.sidebar.slider(f["label"], float(f["min"]), float(f["max"]), float(f["value"]), step=0.1)
