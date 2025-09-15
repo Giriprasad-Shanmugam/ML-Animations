@@ -6,7 +6,7 @@ st.set_page_config(page_title="Diabetes Risk Predictor", layout="wide")
 
 st.title("Diabetes Risk Predictor (Simulated)")
 
-# Define feature details similar to the HTML version
+# Feature definitions
 features = [
     {"key": "sex", "label": "Sex (0=female,1=male)", "min": 0, "max": 1, "value": 1, "step": 1},
     {"key": "bp", "label": "Resting Blood Pressure (94 - 200 mmHg)", "min": 94, "max": 200, "value": 105},
@@ -20,7 +20,7 @@ features = [
     {"key": "age", "label": "Age (20 - 80)", "min": 20, "max": 80, "value": 50}
 ]
 
-# Simulated weights for logistic regression
+# Simulated logistic regression weights
 weights = {
     "sex": 2.0,
     "bp": 3.0,
@@ -34,7 +34,7 @@ weights = {
     "age": 3.5
 }
 
-# Sidebar: CSV upload or manual input
+# Sidebar input selection
 st.sidebar.header("Input Options")
 option = st.sidebar.radio("Select input method", ["Manual Input", "Upload CSV"])
 
@@ -94,5 +94,17 @@ else:
     st.progress(int(percent))
     st.write(f"**Risk Score:** {percent}%")
 
-    st.subheader("Input Values")
-    st.json(input_data)
+    # Improved Input Summary
+    st.subheader("Input Summary")
+    for f in features:
+        key = f["key"]
+        label = f["label"]
+        value = input_data[key]
+        
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            st.markdown(f"<span style='color: #34495e; font-weight:600;'>{label}</span>", unsafe_allow_html=True)
+        with col2:
+            st.markdown(f"<div style='text-align: right; color: #e74c3c; font-weight:bold;'>{value}</div>", unsafe_allow_html=True)
+            
+    st.markdown("---")
