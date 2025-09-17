@@ -120,7 +120,7 @@ if st.session_state.data_loaded:
 
     # Show equation if button clicked
     if find_best_fit:
-        ax.text(10.5, 13.5, f"y = {m:.2f}x + {c:.2f}", fontsize=12, color='green')
+        ax.text(9.5, 13.5, f"y = {m:.2f}x + {c:.2f}", fontsize=12, color='green')
 
     # --- Streamlit outputs ---
     st.title("Simple Linear Regression")
