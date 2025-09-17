@@ -123,7 +123,7 @@ if st.session_state.data_loaded:
         ax.text(10.5, 13.5, f"y = {m:.2f}x + {c:.2f}", fontsize=12, color='green')
 
     # --- Streamlit outputs ---
-    st.title("Interactive Simple Linear Regression")
+    st.title("Simple Linear Regression")
     st.dataframe(df)
     st.pyplot(fig)
 
