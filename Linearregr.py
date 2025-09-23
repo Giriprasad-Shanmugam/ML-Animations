@@ -88,6 +88,18 @@ if st.session_state.data_loaded:
 
     # Create DataFrame for display
     df = pd.DataFrame({"X values": x_data, "Y values": y_data})
+    
+    # ✅ Added styling for table
+    df_styled = df.style.set_properties(
+        **{
+            "text-align": "center",        # Center align table values
+            "font-family": "Arial",        # Change font
+        }
+    ).set_table_styles(
+        [
+            {"selector": "th", "props": [("font-weight", "bold"), ("text-align", "center"), ("font-family", "Arial")]}
+        ]
+    )
 
     # --- Plot ---
     fig, ax = plt.subplots(figsize=(6, 6))
@@ -126,7 +138,8 @@ if st.session_state.data_loaded:
     st.title("Simple Linear Regression")
     st.dataframe(df)
     st.pyplot(fig)
-
+    # ✅ Changed from st.dataframe(df) → st.dataframe(df_styled)
+    st.dataframe(df_styled, use_container_width=True)
     # Attempts left
     if not button_enabled:
         st.sidebar.write(f"Make {10 - st.session_state.slider_changes} more changes to enable the button.")
