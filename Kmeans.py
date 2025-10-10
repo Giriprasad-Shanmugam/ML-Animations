@@ -1,348 +1,212 @@
-# ---------------- Segment 1/3 ----------------
+# kmeans_streamlit_clean.py
 import streamlit as st
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 
-from typing import Tuple
-
-# Page config + minimal global styling for a professional look
-st.set_page_config(page_title="K-Means Interactive — Step-by-Step", layout="wide", initial_sidebar_state="expanded")
+# ---------------- Page config & styling ----------------
+st.set_page_config(page_title="K-Means — Interactive (Dark)", layout="wide", initial_sidebar_state="collapsed")
 st.markdown(
     """
     <style>
-    .stApp { background: linear-gradient(180deg,#f8fafc 0%, #ffffff 60%); }
-    .header {font-family: 'Segoe UI', Roboto, Helvetica, Arial; margin: 0; padding: 0.2rem 0;}
-    .card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 6px 18px rgba(38,50,56,0.06); }
-    .muted { color: #6b7280; font-size: 0.95rem; }
+    /* page background gradient */
+    .stApp {
+        background: linear-gradient(180deg, #0f1724 0%, #071023 45%, #06131b 100%);
+        color: #e6eef8;
+        font-family: Inter, "Segoe UI", Roboto, system-ui, -apple-system, "Helvetica Neue", Arial;
+    }
+    .card {
+        background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: 0 6px 24px rgba(2,6,23,0.6);
+        color: #e6eef8;
+    }
+    .controls { display:flex; gap:10px; align-items:center; }
+    .big-btn { padding:8px 14px; border-radius:10px; border:none; cursor:pointer; }
+    .btn-accent { background: linear-gradient(90deg,#7c3aed,#06b6d4); color:white; }
+    .btn-ghost { background:transparent; border:1px solid rgba(255,255,255,0.08); color:#cfe7ff; }
+    .muted { color: #9fb2d7; font-size:0.95rem; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# ---------- Helpers: data + KMeans step functions ----------
-def generate_points(n: int, seed: int) -> pd.DataFrame:
-    """
-    Generate n 2D points like the original HTML demo: uniform distribution in [0,1]^2.
-    Returns a DataFrame with columns ['x','y'].
-    """
-    rs = np.random.RandomState(seed)
+# ---------------- Minimal helpers ----------------
+def generate_points(n: int, seed: int | None = None) -> pd.DataFrame:
+    rs = np.random.RandomState(seed) if seed is not None else np.random.RandomState()
     pts = rs.rand(n, 2)
-    df = pd.DataFrame(pts, columns=["x", "y"])
-    return df
+    return pd.DataFrame(pts, columns=["x", "y"])
 
-def init_centroids(points: np.ndarray, k: int, seed: int) -> np.ndarray:
-    """
-    Initialize centroids by sampling k points from the data (same style as the HTML).
-    """
-    rs = np.random.RandomState(seed)
+def init_centroids(points: np.ndarray, k: int, seed: int | None = None) -> np.ndarray:
+    rs = np.random.RandomState(seed) if seed is not None else np.random.RandomState()
     n = points.shape[0]
     if k >= n:
-        # if k >= n, just take unique points (fallback)
-        indices = np.arange(n)
+        idx = np.arange(n)
     else:
-        indices = rs.choice(n, size=k, replace=False)
-    return points[indices].astype(float)
+        idx = rs.choice(n, size=k, replace=False)
+    return points[idx].astype(float)
 
 def assign_labels(points: np.ndarray, centroids: np.ndarray) -> np.ndarray:
-    """
-    Assignment step: assign each point to the nearest centroid.
-    """
-    # distances shape: (n_points, k)
     dists = np.linalg.norm(points[:, None, :] - centroids[None, :, :], axis=2)
-    labels = np.argmin(dists, axis=1)
-    return labels
+    return np.argmin(dists, axis=1)
 
-def update_centroids(points: np.ndarray, labels: np.ndarray, k: int, seed: int) -> np.ndarray:
-    """
-    Update step: recompute centroids as mean of assigned points.
-    If a cluster has no points, reinitialize that centroid by picking a random point.
-    """
-    rs = np.random.RandomState(seed)
-    new_centroids = np.zeros((k, 2), dtype=float)
+def update_centroids(points: np.ndarray, labels: np.ndarray, k: int, seed: int | None = None) -> np.ndarray:
+    rs = np.random.RandomState(seed) if seed is not None else np.random.RandomState()
+    new = np.zeros((k, 2), dtype=float)
     for i in range(k):
         members = points[labels == i]
         if len(members) == 0:
-            # reinitialize to a random point from data
-            new_centroids[i] = points[rs.randint(0, points.shape[0])]
+            new[i] = points[rs.randint(0, points.shape[0])]
         else:
-            new_centroids[i] = members.mean(axis=0)
-    return new_centroids
+            new[i] = members.mean(axis=0)
+    return new
 
-def compute_inertia(points: np.ndarray, labels: np.ndarray, centroids: np.ndarray) -> float:
-    """
-    Sum of squared distances (inertia) for diagnostics.
-    """
-    assigned_centroids = centroids[labels]
-    ssd = np.sum((points - assigned_centroids) ** 2)
-    return float(ssd)
-
-def build_figure(points_df: pd.DataFrame,
-                 centroids: np.ndarray,
-                 labels: np.ndarray,
-                 phase: str,
-                 iteration: int,
-                 show_lines: bool = False) -> go.Figure:
-    """
-    Build an aesthetic Plotly figure showing points and centroids.
-    - `phase` is used purely for title/annotation (e.g., "assignment" / "update").
-    - `show_lines`: optionally draw lines from points to their centroids (only for small N).
-    """
-    colors = px.colors.qualitative.Plotly  # pleasant color cycle
-    n = points_df.shape[0]
-    k = centroids.shape[0] if centroids is not None else 0
-
+# Plot builder with transition enabled (Plotly will animate between renders)
+def build_figure(df: pd.DataFrame, centroids: np.ndarray, labels: np.ndarray | None, title: str) -> go.Figure:
+    palette = px.colors.qualitative.Vivid
     fig = go.Figure()
-    # Points: group by label for color
+
+    # Points
     if labels is None:
-        # unassigned: grey
         fig.add_trace(go.Scatter(
-            x=points_df["x"], y=points_df["y"],
+            x=df["x"], y=df["y"],
             mode="markers",
-            marker=dict(size=8, color="lightgray", line=dict(width=0.5, color="#333")),
-            hovertemplate="x: %{x:.3f}<br>y: %{y:.3f}<extra></extra>",
+            marker=dict(size=8, color="rgba(200,200,200,0.45)", line=dict(width=0.6, color="rgba(0,0,0,0.6)")),
+            hoverinfo="skip",
             name="points"
         ))
     else:
-        unique_labels = np.unique(labels)
-        for lab in unique_labels:
-            lab_mask = labels == lab
-            color = colors[int(lab) % len(colors)]
+        k = centroids.shape[0]
+        for i in range(k):
+            mask = labels == i
             fig.add_trace(go.Scatter(
-                x=points_df["x"].values[lab_mask],
-                y=points_df["y"].values[lab_mask],
+                x=df["x"].values[mask], y=df["y"].values[mask],
                 mode="markers",
-                marker=dict(size=8, color=color, line=dict(width=0.5, color="#222")),
-                hovertemplate="cluster: {}<br>x: %{{x:.3f}}<br>y: %{{y:.3f}}<extra></extra>".format(int(lab)),
-                name=f"cluster {int(lab)}",
-                showlegend=True
+                marker=dict(size=8, color=palette[i % len(palette)], line=dict(width=0.6, color="rgba(0,0,0,0.5)")),
+                hoverinfo="skip",
+                name=f"cluster {i}"
             ))
 
-    # Optionally draw assignment lines (only if N small to avoid clutter)
-    if show_lines and labels is not None and n <= 300:
-        pts = points_df.values
-        for idx, lab in enumerate(labels):
-            cx, cy = centroids[lab]
-            fig.add_trace(go.Scatter(
-                x=[pts[idx, 0], cx], y=[pts[idx, 1], cy],
-                mode="lines",
-                line=dict(width=0.6, color="rgba(100,100,100,0.15)"),
-                hoverinfo="none",
-                showlegend=False
-            ))
-
-    # Centroids: large symbols
+    # Centroids (large X marks)
     if centroids is not None:
         for i, (cx, cy) in enumerate(centroids):
-            color = colors[i % len(colors)]
             fig.add_trace(go.Scatter(
                 x=[cx], y=[cy],
                 mode="markers",
-                marker=dict(size=20, symbol="x", color=color, line=dict(width=2, color="#111")),
-                name=f"centroid {i}",
-                hovertemplate="centroid: {}<br>x: %{{x:.3f}}<br>y: %{{y:.3f}}<extra></extra>".format(i),
+                marker=dict(size=20, symbol="x", color=palette[i % len(palette)], line=dict(width=2, color="white")),
+                hoverinfo="skip",
+                showlegend=False,
+                name=f"centroid {i}"
             ))
 
     fig.update_layout(
-        title=f"K-Means — Iter: {iteration} · phase: {phase}",
-        xaxis=dict(visible=False),
-        yaxis=dict(visible=False, scaleanchor="x"),
-        width=860,
-        height=640,
-        margin=dict(l=10, r=10, t=50, b=10),
-        plot_bgcolor="white",
-        legend=dict(itemsizing="constant")
+        template=None,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(8,12,20,0.6)",
+        xaxis=dict(visible=False, range=[-0.05, 1.05]),
+        yaxis=dict(visible=False, range=[-0.05, 1.05], scaleanchor="x"),
+        margin=dict(l=10, r=10, t=40, b=10),
+        title=dict(text=title, font=dict(color="white", size=18)),
+        transition=dict(duration=450, easing="cubic-in-out"),
     )
     return fig
-# ---------------- end of Segment 1/3 ----------------
-# ---------------- Segment 2/3 ----------------
-# Sidebar: controls
-st.sidebar.header("K-Means controls")
-N = st.sidebar.slider("Number of points (N)", min_value=10, max_value=1000, value=200, step=10)
-K = st.sidebar.slider("Number of clusters (K)", min_value=2, max_value=15, value=4, step=1)
-seed = st.sidebar.number_input("Random seed", value=42, step=1, format="%d")
-max_iter = st.sidebar.slider("Max iterations", min_value=1, max_value=200, value=50, step=1)
-tol = st.sidebar.number_input("Convergence tol (max centroid shift)", value=1e-4, format="%.6f")
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("**Instructions**")
-st.sidebar.markdown("""
-- Click **New dataset** to generate points (random uniform as in your HTML demo).  
-- Click **Step** to advance one step (assignment → update → assignment → ...).  
-- Click **Restart centroids** to randomize centroids while keeping the same points.  
-- The simulation stops automatically when centroids converge or max iterations reached.
-""")
+# ---------------- Session state minimal initialization ----------------
+if "points" not in st.session_state:
+    st.session_state.points = generate_points(100)          # default N=100
+    st.session_state.k = 4
+    st.session_state.centroids = init_centroids(st.session_state.points.values, st.session_state.k)
+    st.session_state.labels = None
+    st.session_state.phase = "assign"   # next Step will assign
+    st.session_state.iter = 0
 
-# Initialize session state (persistent between reruns)
-if "points_df" not in st.session_state:
-    st.session_state["points_df"] = generate_points(N, seed)
-    st.session_state["centroids"] = init_centroids(st.session_state["points_df"].values, K, seed + 1)
-    st.session_state["labels"] = None
-    st.session_state["iteration"] = 0
-    st.session_state["phase"] = "assign"  # next Step will perform assignment
-    st.session_state["history"] = []
-    st.session_state["converged"] = False
-    st.session_state["prev_N"] = N
-    st.session_state["prev_K"] = K
-    st.session_state["prev_seed"] = seed
-    st.session_state["max_iter"] = max_iter
-    st.session_state["tol"] = tol
-
-# If N or seed changed -> new dataset automatically
-if (st.session_state.get("prev_N") != N) or (st.session_state.get("prev_seed") != seed):
-    st.session_state["points_df"] = generate_points(N, seed)
-    st.session_state["centroids"] = init_centroids(st.session_state["points_df"].values, K, seed + 1)
-    st.session_state["labels"] = None
-    st.session_state["iteration"] = 0
-    st.session_state["phase"] = "assign"
-    st.session_state["history"] = []
-    st.session_state["converged"] = False
-    st.session_state["prev_N"] = N
-    st.session_state["prev_seed"] = seed
-
-# If K changed -> reinitialize centroids (keep points)
-if st.session_state.get("prev_K") != K:
-    st.session_state["centroids"] = init_centroids(st.session_state["points_df"].values, K, seed + 1)
-    st.session_state["labels"] = None
-    st.session_state["iteration"] = 0
-    st.session_state["phase"] = "assign"
-    st.session_state["history"] = []
-    st.session_state["converged"] = False
-    st.session_state["prev_K"] = K
-
-# If max_iter or tol changes store them
-st.session_state["max_iter"] = max_iter
-st.session_state["tol"] = tol
-
-# Top: title + short description
-st.markdown("<div class='card header'><h1 style='margin-bottom:4px;'>K-Means — Step by Step</h1>"
-            "<div class='muted'>A clean interactive version of your D3 demo — 2D points, step execution.</div></div>",
+# ---------------- Top UI ----------------
+st.markdown("<div class='card'><h2 style='margin:0 0 6px 0'>K-Means — Step-by-Step</h2>"
+            "<div class='muted'>Manual steps • 2D points • modern dark gradient</div></div>",
             unsafe_allow_html=True)
 
-# Layout: left control column, center plot, right stats
-left_col, center_col, right_col = st.columns([1, 2, 1])
-with left_col:
-    st.markdown("### Controls")
-    # Buttons
-    new_clicked = st.button("🔁 New dataset", key="new")
-    restart_clicked = st.button("🧭 Restart centroids", key="restart")
-    step_clicked = st.button("▶ Step", key="step")
+# Controls row
+cols = st.columns([1, 2, 1])
+with cols[0]:
+    # Minimal sliders + buttons
+    N = st.slider("N (points)", min_value=20, max_value=800, value=100, step=10)
+    K = st.slider("K (clusters)", min_value=2, max_value=12, value=4, step=1)
 
-    # quick toggles
-    show_assignment_lines = st.checkbox("Show assignment lines (small N)", value=False)
-    show_inertia = st.checkbox("Show inertia & counts", value=True)
+with cols[1]:
+    st.write("")  # spacer
+    # Buttons laid out horizontally
+    c1, c2, c3 = st.columns([1,1,1])
+    with c1:
+        new_clicked = st.button("New dataset", key="new", help="Generate a fresh random scatter (uniform).")
+    with c2:
+        restart_clicked = st.button("Restart centroids", key="restart", help="Keep points; randomize centroids.")
+    with c3:
+        step_clicked = st.button("Step ▶", key="step", help="Advance a single step (assign → update → ...).")
 
-with right_col:
-    st.markdown("### Status")
-    st.write(f"Iteration: **{st.session_state['iteration']}**")
-    st.write(f"Phase: **{st.session_state['phase']}**")
-    st.write(f"Converged: **{st.session_state['converged']}**")
-    st.write(f"Max iter: **{st.session_state['max_iter']}**")
-    st.write(f"tol: **{st.session_state['tol']}**")
-# ---------------- end of Segment 2/3 ----------------
-# ---------------- Segment 3/3 ----------------
-# Helper for performing one step (assignment/update) and updating session_state
-def perform_step():
-    pts_df = st.session_state["points_df"]
-    pts = pts_df.values
-    centroids = st.session_state["centroids"]
-    k = K
-    seed_local = seed + 100 + st.session_state["iteration"]  # for deterministic reinit if needed
+with cols[2]:
+    st.markdown(f"<div class='card' style='text-align:center'><div style='font-weight:600'>{st.session_state['phase'].upper()}</div>"
+                f"<div class='muted' style='margin-top:6px'>Iteration: {st.session_state['iter']}</div></div>",
+                unsafe_allow_html=True)
 
-    if st.session_state["converged"]:
-        return
+# ---------------- Handlers (very small & deterministic) ----------------
+# If N or K changed by slider, regenerate/reinit
+if N != len(st.session_state.points):
+    st.session_state.points = generate_points(N)
+    st.session_state.k = K
+    st.session_state.centroids = init_centroids(st.session_state.points.values, K)
+    st.session_state.labels = None
+    st.session_state.phase = "assign"
+    st.session_state.iter = 0
 
-    if st.session_state["phase"] == "assign":
-        # Assignment step: compute labels (visual changes only)
-        labels = assign_labels(pts, centroids)
-        st.session_state["labels"] = labels
-        st.session_state["phase"] = "update"
-    elif st.session_state["phase"] == "update":
-        # Update step: compute new centroids
-        labels = st.session_state.get("labels")
-        if labels is None:
-            labels = assign_labels(pts, centroids)
-            st.session_state["labels"] = labels
+if K != st.session_state.k:
+    # reinitialize centroids for new K, keep points
+    st.session_state.k = K
+    st.session_state.centroids = init_centroids(st.session_state.points.values, K)
+    st.session_state.labels = None
+    st.session_state.phase = "assign"
+    st.session_state.iter = 0
 
-        prev_centroids = centroids.copy()
-        new_centroids = update_centroids(pts, labels, k, seed_local)
-        st.session_state["centroids"] = new_centroids
-        st.session_state["iteration"] += 1
-        st.session_state["phase"] = "assign"  # next step will reassign with updated centroids
-
-        # check convergence
-        max_shift = np.max(np.linalg.norm(new_centroids - prev_centroids, axis=1))
-        st.session_state["history"].append({
-            "iteration": st.session_state["iteration"],
-            "max_shift": float(max_shift),
-            "inertia": compute_inertia(pts, labels, new_centroids)
-        })
-        if (max_shift <= st.session_state["tol"]) or (st.session_state["iteration"] >= st.session_state["max_iter"]):
-            st.session_state["converged"] = True
-            st.session_state["phase"] = "converged"
-
-# Button handlers:
 if new_clicked:
-    # create brand new dataset (uniform points, like HTML)
-    st.session_state["points_df"] = generate_points(N, seed)
-    st.session_state["centroids"] = init_centroids(st.session_state["points_df"].values, K, seed + 1)
-    st.session_state["labels"] = None
-    st.session_state["iteration"] = 0
-    st.session_state["phase"] = "assign"
-    st.session_state["history"] = []
-    st.session_state["converged"] = False
+    st.session_state.points = generate_points(N)
+    st.session_state.centroids = init_centroids(st.session_state.points.values, K)
+    st.session_state.labels = None
+    st.session_state.phase = "assign"
+    st.session_state.iter = 0
 
-if restart_clicked and (st.session_state.get("points_df") is not None):
-    # reinit centroids but keep points
-    st.session_state["centroids"] = init_centroids(st.session_state["points_df"].values, K, seed + 1)
-    st.session_state["labels"] = None
-    st.session_state["iteration"] = 0
-    st.session_state["phase"] = "assign"
-    st.session_state["history"] = []
-    st.session_state["converged"] = False
+if restart_clicked:
+    st.session_state.centroids = init_centroids(st.session_state.points.values, K)
+    st.session_state.labels = None
+    st.session_state.phase = "assign"
+    st.session_state.iter = 0
 
+# Step logic: one user click performs one phase (assign OR update)
 if step_clicked:
-    perform_step()
-
-# Build visualization
-pts_df = st.session_state["points_df"]
-centroids = st.session_state["centroids"]
-labels = st.session_state["labels"]
-
-fig = build_figure(pts_df, centroids, labels, st.session_state["phase"], st.session_state["iteration"],
-                   show_lines=show_assignment_lines)
-
-with center_col:
-    st.plotly_chart(fig, use_container_width=True)
-
-# Right column: stats & small diagnostics
-with right_col:
-    st.markdown("### Diagnostics")
-    if st.session_state.get("labels") is not None:
-        labels_arr = st.session_state["labels"]
-        counts = pd.Series(labels_arr).value_counts().sort_index()
-        counts_df = counts.rename_axis("cluster").reset_index(name="count")
-        st.table(counts_df)
-
-        if show_inertia:
-            inertia_val = compute_inertia(pts_df.values, labels_arr, centroids)
-            st.write(f"**Inertia (SSD):** {inertia_val:.4f}")
-
+    pts_np = st.session_state.points.values
+    if st.session_state.phase == "assign":
+        st.session_state.labels = assign_labels(pts_np, st.session_state.centroids)
+        st.session_state.phase = "update"
     else:
-        st.write("No assignment yet — click **Step** to assign points to initial centroids.")
+        # update centroids and increment iteration
+        labels = st.session_state.labels
+        if labels is None:
+            st.session_state.labels = assign_labels(pts_np, st.session_state.centroids)
+            st.session_state.phase = "update"
+        else:
+            prev_cent = st.session_state.centroids.copy()
+            st.session_state.centroids = update_centroids(pts_np, labels, st.session_state.k)
+            st.session_state.iter += 1
+            st.session_state.phase = "assign"
 
-    st.markdown("---")
-    st.markdown("### History (recent)")
-    history = st.session_state.get("history", [])
-    if history:
-        hist_df = pd.DataFrame(history).sort_values("iteration", ascending=False).head(6)
-        st.dataframe(hist_df.reset_index(drop=True))
-    else:
-        st.write("No updates recorded yet.")
+# ---------------- Visualization (animated via Plotly transitions) ----------------
+title = f"K-Means — phase: {st.session_state['phase'].upper()} • iter: {st.session_state['iter']}"
+fig = build_figure(st.session_state.points, st.session_state.centroids, st.session_state.labels, title)
 
-# Footer / small help
-st.markdown("<div class='muted' style='margin-top:10px;'>Tip: press Step repeatedly to see assignment → centroid update cycles. "
-            "Restart centroids will re-randomize centroids while keeping your points.</div>",
+# Render centered
+st.plotly_chart(fig, use_container_width=True)
+
+# small footer tip
+st.markdown("<div style='margin-top:6px' class='muted'>Click 'Step' repeatedly to see assignment → centroid update cycles. "
+            "Use 'Restart centroids' to re-randomize just the centroids or 'New dataset' to get fresh points.</div>",
             unsafe_allow_html=True)
-# ---------------- end of Segment 3/3 ----------------
